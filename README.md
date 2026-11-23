@@ -1,1 +1,2 @@
 # M4-Practica-guiada
+En esta ocasión les muestro el simulador multimodal que nos propuso la profesora, ya alojado en GitHub. Le retocaría la voz, porque no es muy natural, pero en mi Trabajo Final estará mejorada. Las imágenes las producí con Meta AI, siguiendo las instrucciones de prompt de la profesora, con algunos ajustes propios. El simulador multimodal lo generé con Gemini AI Plus (educativo).
