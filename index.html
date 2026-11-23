@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trabajo en caliente cerca de solventes · Simulador</title>
+<style>
+:root{--verde:#2f4a3a;--terracota:#c2542d;--fondo:#f4f3ee;--tinta:#1d2b24;--suave:#e6ede7}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fondo);color:var(--tinta);line-height:1.55;font-size:17px}
+main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.tarjeta{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:16px}
+h1{font-size:1.6rem;margin:0 0 10px;color:var(--verde);line-height:1.25}
+h2{font-size:1.3rem;margin:0 0 10px;color:var(--verde);line-height:1.25}
+h2:focus{outline:none}
+.paso{font-size:.85rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--terracota);margin:0 0 6px}
+.nota{font-size:.9rem;color:#46564e}
+button{font:inherit;cursor:pointer}
+.op{display:block;width:100%;text-align:left;padding:14px 16px;margin:10px 0;border:2px solid var(--verde);border-radius:10px;background:#fff;color:var(--tinta)}
+.op:hover{background:var(--suave)}
+.op b{color:var(--terracota);margin-right:6px}
+.primario{background:var(--verde);color:#fff;border:0;border-radius:10px;padding:12px 22px;font-weight:600}
+.secundario{background:#fff;color:var(--verde);border:2px solid var(--verde);border-radius:10px;padding:10px 18px;font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--terracota);outline-offset:2px}
+.final-seguro{background:#eaf2e4}
+.final-incidente{background:#faece6}
+ul.lista{padding-left:1.2rem;margin:8px 0}
+.vars{width:100%;border-collapse:collapse;font-size:.95rem;margin-top:6px}
+.vars td{padding:6px 8px;border-bottom:1px solid #dde3de}
+.vars td:first-child{color:#46564e;width:55%}
+/* Estilos Capa Multimodal */
+.img-escena{display:block;width:100%;max-height:340px;object-fit:cover;border-radius:10px;margin:0 0 14px;background:var(--suave)}
+.barra-voz{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px}
+.btn-voz{background:var(--suave);color:var(--verde);border:1px solid var(--verde);border-radius:8px;padding:6px 12px;font-size:.9rem;font-weight:600}
+.btn-voz:hover{background:#d7e3d9}
+.btn-voz[disabled]{opacity:.45;cursor:not-allowed}
+.aviso-ia{font-size:.82rem;color:#5c6b63;text-align:center;margin-top:20px;line-height:1.4}
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<script>
+
+const SIM = {
+  titulo: "Trabajo en caliente cerca de solventes",
+  intro: 'Sos responsable de seguridad en una planta de procesos. Un operario necesita soldar una cañería cerca de un tanque de solvente inflamable y quiere empezar ya. Vas a tomar las decisiones que corresponden a tu rol y a ver sus consecuencias.',
+  parametro: 'Caso ilustrativo. En esta planta ficticia, el procedimiento no permite trabajo en caliente con lecturas superiores al 10 % del límite inferior de explosividad (LIE). Los valores y procedimientos reales dependen de la normativa y de cada planta.',
+  varsIniciales: { vapores: 14, permiso: 'sin firmar', ventilacion: false, vigia: false, medido: false },
+  nodos: {
+  "N1": {
+    "id": "N1",
+    "titulo": "Llegada al sector",
+    "texto": "Es martes a la tarde. Un operario tiene que soldar una brida de una cañería a unos seis metros de un tanque de solvente inflamable, dentro de un área clasificada. Quiere empezar ya porque la línea está parada. El permiso de trabajo en caliente todavía no está firmado.",
+    "opciones": [
+      {
+        "id": "A",
+        "texto": "Detener el inicio, pedir el permiso y medir la atmósfera antes de autorizar",
+        "efectos": {
+          "medido": true
+        },
+        "destino": "N2"
+      },
+      {
+        "id": "B",
+        "texto": "Autorizar con ventilación natural: hay viento y el tanque está cerrado",
+        "efectos": {},
+        "destino": "F2"
+      },
+      {
+        "id": "C",
+        "texto": "Autorizar y dejar un extintor a mano, sin más trámites",
+        "efectos": {},
+        "destino": "F2"
+      }
+    ]
+  },
+  "N2": {
+    "id": "N2",
+    "titulo": "Medición de la atmósfera",
+    "texto": "Con el explosímetro (detector de gases) en el punto de trabajo, la lectura marca 14 % del LIE. En esta planta, el máximo permitido para trabajo en caliente es 10 % del LIE.",
+    "opciones": [
+      {
+        "id": "A",
+        "texto": "Ventilar con un extractor, controlar el origen de los vapores y volver a medir",
+        "efectos": {
+          "ventilacion": true,
+          "vapores": 6
+        },
+        "destino": "N3"
+      },
+      {
+        "id": "B",
+        "texto": "Autorizar igual: 14 % es una lectura baja",
+        "efectos": {},
+        "destino": "F2"
+      }
+    ]
+  },
+  "N3": {
+    "id": "N3",
+    "titulo": "Segunda medición",
+    "texto": "Con el extractor en marcha, la lectura baja a 6 % del LIE. Falta completar el permiso de trabajo en caliente.",
+    "opciones": [
+      {
+        "id": "A",
+        "texto": "Firmar el permiso, designar un vigía de fuego con extintor y mantener la medición durante el trabajo",
+        "efectos": {
+          "permiso": "firmado",
+          "vigia": true
+        },
+        "destino": "F1"
+      },
+      {
+        "id": "B",
+        "texto": "Firmar el permiso y autorizar sin vigía: el área ya está despejada",
+        "efectos": {
+          "permiso": "firmado"
+        },
+        "destino": "F2"
+      }
+    ]
+  },
+  "F1": {
+    "id": "F1",
+    "final": true,
+    "resultado": "seguro",
+    "titulo": "Trabajo seguro",
+    "texto": "El trabajo se hizo con la atmósfera por debajo del máximo, ventilación activa, permiso firmado y un vigía de fuego atento. No hubo incidentes."
+  },
+  "F2": {
+    "id": "F2",
+    "final": true,
+    "resultado": "incidente",
+    "titulo": "Incidente durante el trabajo",
+    "texto": "Se produjo un principio de incendio y el personal debió evacuar según el plan de emergencia."
+  }
+}
+};
+
+/* --- Configuración Capa Multimodal --- */
+const IMAGENES = {
+  N1: 'img/n1_llegada.jpg',
+  N2: 'img/n2_medicion.jpg',
+  N3: 'img/n3_ventilacion.jpg',
+  F1: 'img/f1_trabajo_seguro.jpg',
+  F2: 'img/f2_incidente.jpg'
+};
+
+const AVISO_IA = 'Las imágenes de este simulador fueron generadas con inteligencia artificial y no corresponden a una planta real';
+
+function htmlImagen(idNodo) {
+  const src = IMAGENES[idNodo];
+  if (!src) return '';
+  return `<img class="img-escena" src="${esc(src)}" alt="" onerror="this.style.display='none'">`;
+}
+
+function htmlAviso() {
+  return `<footer class="aviso-ia">${esc(AVISO_IA)}</footer>`;
+}
+
+function prepararTextoVoz(texto) {
+  return String(texto)
+    .replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 por ciento')
+    .replace(/\bLIE\b/g, 'límite inferior de explosividad');
+}
+
+function textoActualParaLeer() {
+  if (estado.nodo === 'INICIO') {
+    return `${SIM.titulo}. ${SIM.intro} ${SIM.parametro}`;
+  }
+  const nodo = SIM.nodos[estado.nodo];
+  let partes = [nodo.titulo + '.', nodo.texto];
+  if (nodo.opciones && nodo.opciones.length) {
+    partes.push('Opciones disponibles:');
+    nodo.opciones.forEach(o => {
+      partes.push(`Opción ${o.id}: ${o.texto}.`);
+    });
+  }
+  return partes.join(' ');
+}
+
+function detenerVoz() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+  const btnDetener = document.getElementById('btn-detener-voz');
+  if (btnDetener) btnDetener.disabled = true;
+}
+
+function escucharPantalla() {
+  if (!('speechSynthesis' in window)) return;
+  detenerVoz();
+  const texto = prepararTextoVoz(textoActualParaLeer());
+  const utterance = new SpeechSynthesisUtterance(texto);
+  utterance.lang = 'es-AR';
+
+  const voces = window.speechSynthesis.getVoices();
+  const vozEs = voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  if (vozEs) utterance.voice = vozEs;
+
+  const btnDetener = document.getElementById('btn-detener-voz');
+  if (btnDetener) btnDetener.disabled = false;
+
+  utterance.onend = () => {
+    if (btnDetener) btnDetener.disabled = true;
+  };
+  utterance.onerror = () => {
+    if (btnDetener) btnDetener.disabled = true;
+  };
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function htmlControlesVoz() {
+  if (!('speechSynthesis' in window)) return '';
+  return `<div class="barra-voz" role="group" aria-label="Lectura en voz alta">
+    <button type="button" class="btn-voz" onclick="escucharPantalla()">🔊 Escuchar</button>
+    <button type="button" id="btn-detener-voz" class="btn-voz" onclick="detenerVoz()" disabled>⏹ Detener</button>
+  </div>`;
+}
+
+window.addEventListener('beforeunload', detenerVoz);
+/* --- Fin Capa Multimodal --- */
+
+let estado;
+const app = document.getElementById('app');
+
+function nuevoEstado() {
+  estado = { nodo: 'N1', historial: [], vars: Object.assign({}, SIM.varsIniciales), alumno: (estado && estado.alumno) || { nombre: '', legajo: '' } };
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function resumenVars(v) {
+  return [
+    ['Vapores en el sector', v.vapores + ' % del LIE' + (v.medido ? '' : ' (nadie lo midió)')],
+    ['Permiso de trabajo en caliente', v.permiso],
+    ['Ventilación forzada', v.ventilacion ? 'sí' : 'no'],
+    ['Vigía de fuego', v.vigia ? 'sí' : 'no']
+  ];
+}
+
+function analisis(v) {
+  const bien = [], mal = [];
+  if (v.medido) bien.push('Mediste la atmósfera antes de autorizar.');
+  else mal.push('No se midió la atmósfera: no había forma de saber si los vapores superaban el máximo.');
+  if (v.medido && v.vapores > 10) mal.push('La lectura era de ' + v.vapores + ' % del LIE, por encima del máximo de 10 %. Ese porcentaje es del límite inferior de explosividad, no de la mezcla total: una lectura de 14 % del LIE ya es alta.');
+  if (v.medido && v.vapores <= 10) bien.push('Con la ventilación, la lectura bajó a ' + v.vapores + ' % del LIE, por debajo del máximo.');
+  if (v.permiso === 'firmado') bien.push('El permiso de trabajo en caliente estaba firmado.');
+  else mal.push('El permiso de trabajo en caliente no estaba firmado.');
+  if (v.vigia) bien.push('Había un vigía de fuego con extintor durante el trabajo.');
+  else mal.push('No había vigía de fuego con extintor durante el trabajo.');
+  return { bien, mal };
+}
+
+function codigoRecorrido() {
+  return estado.historial.map(h => h.nodo + '-' + h.opcion).concat([estado.nodo]).join(', ');
+}
+
+function elegir(opId) {
+  const nodo = SIM.nodos[estado.nodo];
+  const op = nodo.opciones.find(o => o.id === opId);
+  estado.historial.push({ nodo: nodo.id, opcion: op.id, texto: op.texto });
+  Object.assign(estado.vars, op.efectos);
+  estado.nodo = op.destino;
+  render();
+}
+
+function pantallaInicio() {
+  return `<section class="tarjeta">
+    <h1 tabindex="-1" id="foco">${esc(SIM.titulo)}</h1>
+    ${htmlControlesVoz()}
+    <p>${esc(SIM.intro)}</p>
+    <p class="nota">${esc(SIM.parametro)}</p>
+    
+    <button class="primario" onclick="comenzar()">Comenzar</button>
+  </section>
+  ${htmlAviso()}`;
+}
+
+function pantallaNodo(nodo) {
+  const paso = estado.historial.length + 1;
+  const ops = nodo.opciones.map(o => `<button class="op" onclick="elegir('${o.id}')"><b>${o.id}.</b>${esc(o.texto)}</button>`).join('');
+  return `<section class="tarjeta">
+    <p class="paso">Decisión ${paso}</p>
+    ${htmlImagen(nodo.id)}
+    <h2 tabindex="-1" id="foco">${esc(nodo.titulo)}</h2>
+    ${htmlControlesVoz()}
+    <p>${esc(nodo.texto)}</p>
+    
+    ${ops}
+  </section>
+  ${htmlAviso()}`;
+}
+
+function pantallaFinal(nodo) {
+  const a = analisis(estado.vars);
+  const li = arr => arr.map(t => `<li>${esc(t)}</li>`).join('');
+  const filas = resumenVars(estado.vars).map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('');
+  return `<section class="tarjeta ${nodo.resultado === 'seguro' ? 'final-seguro' : 'final-incidente'}">
+    <p class="paso">Resultado</p>
+    ${htmlImagen(nodo.id)}
+    <h2 tabindex="-1" id="foco">${esc(nodo.titulo)}</h2>
+    ${htmlControlesVoz()}
+    <p>${esc(nodo.texto)}</p>
+    
+  </section>
+  <section class="tarjeta">
+    <h2>Tu recorrido</h2>
+    <p><b>${esc(codigoRecorrido())}</b></p>
+    <h2>Lo que no se veía mientras decidías</h2>
+    <table class="vars">${filas}</table>
+    ${a.mal.length ? '<h2 style="margin-top:16px">Qué faltó</h2><ul class="lista">' + li(a.mal) + '</ul>' : ''}
+    ${a.bien.length ? '<h2 style="margin-top:16px">Qué se hizo bien</h2><ul class="lista">' + li(a.bien) + '</ul>' : ''}
+  </section>
+  
+  <section class="tarjeta"><button class="secundario" onclick="reiniciar()">Volver a empezar</button></section>
+  ${htmlAviso()}`;
+}
+
+function render() {
+  detenerVoz();
+  let html;
+  if (estado.nodo === 'INICIO') html = pantallaInicio();
+  else {
+    const nodo = SIM.nodos[estado.nodo];
+    html = nodo.final ? pantallaFinal(nodo) : pantallaNodo(nodo);
+  }
+  app.innerHTML = html;
+  const f = document.getElementById('foco');
+  if (f) f.focus({ preventScroll: false });
+  window.scrollTo(0, 0);
+}
+
+function comenzar() {
+  estado.nodo = 'N1';
+  render();
+}
+
+function reiniciar() {
+  const alumno = estado.alumno;
+  nuevoEstado();
+  estado.alumno = alumno;
+  estado.nodo = 'INICIO';
+  render();
+}
+
+nuevoEstado();
+estado.nodo = 'INICIO';
+render();
+
+</script>
+</body>
+</html>
